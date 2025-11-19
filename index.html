@@ -98,4 +98,81 @@
         .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
         .label { color: #8b949e; }
         .value { font-family: monospace; color: #e6edf3; }
-        .countdown-box { background: #0d1117; margin-top: 15px; padding: 15px; border-radius: 8px; t
+        .countdown-box { background: #0d1117; margin-top: 15px; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #30363d; }
+        .timer { font-size: 1.6rem; font-weight: bold; font-family: monospace; color: var(--text-highlight); margin: 5px 0; }
+        .date-est { font-size: 0.8rem; color: #8b949e; }
+        .progress-container { margin-top: 15px; background-color: #21262d; border-radius: 10px; height: 8px; overflow: hidden; }
+        .progress-bar { height: 100%; border-radius: 10px; transition: width 1s ease; }
+        .btc .progress-bar { background-color: var(--btc-color); }
+        .ltc .progress-bar { background-color: var(--ltc-color); }
+        .loading { text-align: center; padding: 20px; color: #8b949e; }
+        .refresh-btn { margin-top: 20px; padding: 12px 25px; background: #238636; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <h1>📊 市场周期监控</h1>
+
+    <div class="container">
+        
+        <!-- 🔮 周期预测看板 -->
+        <div class="card prediction-card">
+            <div class="pred-header">
+                <span>🔮 周期预测</span>
+                <span style="font-size: 0.8rem; color: #e6edf3;" id="today-date">今天: --/--</span>
+            </div>
+            
+            <div class="pred-row">
+                <span class="pred-label">本轮牛市最高价</span>
+                <span class="pred-value gold-val">126,199 U</span>
+            </div>
+            <div class="pred-row">
+                <span class="pred-label">🐂 牛市顶点日期</span>
+                <span class="pred-value bull-val">2025-10-06</span>
+            </div>
+            <div class="pred-row">
+                <span class="pred-label">🐻 熊市低点预测</span>
+                <span class="pred-value bear-val">2026-10-05</span>
+            </div>
+
+            <!-- 动态倒计时区域 -->
+            <div class="pred-row dynamic-row" style="margin-top: 10px; border-top: 1px dashed #30363d;">
+                <span class="pred-label" id="peak-label">距离牛市顶点还有</span>
+                <span class="pred-value" style="color: #fff;" id="peak-days">计算中...</span>
+            </div>
+            <div class="pred-row dynamic-row" style="border-bottom: none;">
+                <span class="pred-label">距离熊市低点还有</span>
+                <span class="pred-value" style="color: var(--bear-color);" id="bear-days">计算中...</span>
+            </div>
+        </div>
+
+        <!-- 区块减半数据 -->
+        <div id="app">
+            <div class="loading">正在连接链上数据...</div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="initData()">🔄 刷新区块数据</button>
+
+    <script>
+        // === 1. 日期逻辑 (智能修正文案) ===
+        function updateDateInfo() {
+            const now = new Date();
+            document.getElementById('today-date').innerText = "今天: " + now.toLocaleDateString('zh-CN', {month:'2-digit', day:'2-digit'});
+
+            // 1. 牛市顶点逻辑
+            const bullDate = new Date("2025-10-06T00:00:00");
+            const diffBull = bullDate - now;
+            const daysToBull = Math.ceil(diffBull / (1000 * 60 * 60 * 24));
+            
+            const peakLabel = document.getElementById('peak-label');
+            const peakValue = document.getElementById('peak-days');
+
+            if (daysToBull > 0) {
+                peakLabel.innerText = "距离牛市顶点还有";
+                peakLabel.style.color = "#8b949e";
+                peakValue.innerText = `${daysToBull} 天`;
+                peakValue.style.color = "#3fb950"; // 还没到显示绿色
+            } else {
+                peakLabel.innerText = "距离牛市顶点已过";
+                peakLabel.style.color = "#d29922
