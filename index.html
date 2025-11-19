@@ -175,4 +175,83 @@
                 peakValue.style.color = "#3fb950"; // 还没到显示绿色
             } else {
                 peakLabel.innerText = "距离牛市顶点已过";
-                peakLabel.style.color = "#d29922
+                peakLabel.style.color = "#d29922"; // 过了显示金色
+                peakValue.innerText = `${Math.abs(daysToBull)} 天`;
+                peakValue.style.color = "#fff";
+            }
+
+            // 2. 熊市低点逻辑
+            const bearDate = new Date("2026-10-05T00:00:00");
+            const diffBear = bearDate - now;
+            const daysToBear = Math.ceil(diffBear / (1000 * 60 * 60 * 24));
+            
+            const bearValue = document.getElementById('bear-days');
+            if (daysToBear > 0) {
+                bearValue.innerText = `${daysToBear} 天`;
+            } else {
+                bearValue.innerText = `已过 ${Math.abs(daysToBear)} 天`;
+            }
+        }
+        
+        // 立即执行日期更新
+        updateDateInfo();
+
+        // === 2. 区块链数据 ===
+        const COINS = [
+            { id: 'btc', name: 'Bitcoin', symbol: 'BTC', halvingBlock: 1050000, blockTimeSec: 600, api: 'https://mempool.space/api/blocks/tip/height', lastHalvingBlock: 840000 },
+            { id: 'ltc', name: 'Litecoin', symbol: 'LTC', halvingBlock: 3360000, blockTimeSec: 150, api: 'https://api.blockcypher.com/v1/ltc/main', lastHalvingBlock: 2520000 }
+        ];
+
+        async function initData() {
+            const app = document.getElementById('app');
+            app.innerHTML = '<div class="loading">正在同步全网数据...</div>';
+            let htmlContent = '';
+
+            for (let coin of COINS) {
+                try {
+                    let currentHeight = await fetchBlockHeight(coin);
+                    let blocksLeft = coin.halvingBlock - currentHeight;
+                    let totalSecondsLeft = blocksLeft * coin.blockTimeSec;
+                    let estDate = new Date(new Date().getTime() + totalSecondsLeft * 1000);
+                    let progress = ((currentHeight - coin.lastHalvingBlock) / (coin.halvingBlock - coin.lastHalvingBlock)) * 100;
+
+                    htmlContent += `
+                        <div class="card ${coin.id}">
+                            <div class="coin-header">
+                                <span class="coin-name">${coin.name}</span>
+                                <span class="coin-symbol">${coin.symbol}</span>
+                            </div>
+                            <div class="info-row"><span class="label">当前高度:</span><span class="value">#${currentHeight.toLocaleString()}</span></div>
+                            <div class="info-row"><span class="label">减半高度:</span><span class="value">#${coin.halvingBlock.toLocaleString()}</span></div>
+                            <div class="progress-container"><div class="progress-bar" style="width: ${Math.min(100,Math.max(0,progress))}%"></div></div>
+                            <div style="text-align:right; font-size:12px; margin-top:5px; color:#8b949e">${progress.toFixed(2)}%</div>
+                            <div class="countdown-box">
+                                <div class="label">预计减半倒计时</div>
+                                <div class="timer">${formatTime(totalSecondsLeft)}</div>
+                                <div class="date-est">预计: ${estDate.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}</div>
+                            </div>
+                        </div>`;
+                } catch (error) {
+                    htmlContent += `<div class="card"><div style="padding:20px; text-align:center; color:red;">${coin.name} API 繁忙，请稍后刷新</div></div>`;
+                }
+            }
+            app.innerHTML = htmlContent;
+        }
+
+        async function fetchBlockHeight(coin) {
+            const r = await fetch(coin.api);
+            const d = await r.json();
+            return coin.id === 'btc' ? parseInt(d) : d.height;
+        }
+
+        function formatTime(s) {
+            if (s <= 0) return "已减半";
+            const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+            return `${d}天 ${h}时 ${m}分`;
+        }
+        
+        // 立即执行数据获取
+        initData();
+    </script>
+</body>
+</html>
