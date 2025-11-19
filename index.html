@@ -80,16 +80,14 @@
         .bear-val { color: #f85149; }
         .gold-val { color: var(--gold-color); font-size: 1.1rem; }
         
-        /* 动态倒计时行特别样式 */
         .dynamic-row {
             background: rgba(255,255,255,0.03);
             margin: 0 -20px;
             padding: 10px 20px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        .price-diff { color: #ff7b72; font-weight: bold; } /* 差价显示的颜色 */
+        .price-diff { color: #ff7b72; font-weight: bold; } 
 
-        /* 减半卡片样式 */
         .card.btc::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background-color: var(--btc-color); }
         .card.ltc::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background-color: var(--ltc-color); }
 
@@ -107,7 +105,7 @@
         .btc .progress-bar { background-color: var(--btc-color); }
         .ltc .progress-bar { background-color: var(--ltc-color); }
         .loading { text-align: center; padding: 20px; color: #8b949e; }
-        .refresh-btn { margin-top: 20px; padding: 12px 25px; background: #238636; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; width: 100%; }
+        .refresh-btn { margin-top: 20px; padding: 12px 25px; background: #238636; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; width: 100%; margin-bottom: 30px;}
     </style>
 </head>
 <body>
@@ -147,22 +145,21 @@
                 <span class="pred-value bear-val">38,000 U</span>
             </div>
 
-            <!-- 5. 动态天数：牛市 -->
+            <!-- 5. 动态天数 -->
             <div class="pred-row dynamic-row" style="margin-top: 10px; border-top: 1px dashed #30363d;">
                 <span class="pred-label" id="peak-label">距离牛市顶点还有</span>
-                <span class="pred-value" style="color: #fff;" id="peak-days">计算中...</span>
+                <span class="pred-value" style="color: #fff;" id="peak-days">--</span>
             </div>
 
-            <!-- 6. 动态天数：熊市 -->
             <div class="pred-row dynamic-row">
                 <span class="pred-label">距离熊市低点还有</span>
-                <span class="pred-value" style="color: var(--bear-color);" id="bear-days">计算中...</span>
+                <span class="pred-value" style="color: var(--bear-color);" id="bear-days">--</span>
             </div>
 
             <!-- 7. 新增：距离最低点还差 (实时计算) -->
             <div class="pred-row dynamic-row" style="border-bottom: none;">
                 <span class="pred-label">距离最低点还差</span>
-                <span class="pred-value price-diff" id="price-gap">连接币安API中...</span>
+                <span class="pred-value price-diff" id="price-gap">价格加载中...</span>
             </div>
         </div>
 
@@ -180,74 +177,70 @@
             const now = new Date();
             document.getElementById('today-date').innerText = "今天: " + now.toLocaleDateString('zh-CN', {month:'2-digit', day:'2-digit'});
 
-            // 牛市顶点逻辑
+            // 牛市
             const bullDate = new Date("2025-10-06T00:00:00");
-            const diffBull = bullDate - now;
-            const daysToBull = Math.ceil(diffBull / (1000 * 60 * 60 * 24));
-            
+            const diffBull = Math.ceil((bullDate - now) / (86400000));
             const peakLabel = document.getElementById('peak-label');
             const peakValue = document.getElementById('peak-days');
 
-            if (daysToBull > 0) {
+            if (diffBull > 0) {
                 peakLabel.innerText = "距离牛市顶点还有";
                 peakLabel.style.color = "#8b949e";
-                peakValue.innerText = `${daysToBull} 天`;
+                peakValue.innerText = `${diffBull} 天`;
                 peakValue.style.color = "#3fb950";
             } else {
                 peakLabel.innerText = "距离牛市顶点已过";
                 peakLabel.style.color = "#d29922"; 
-                peakValue.innerText = `${Math.abs(daysToBull)} 天`;
+                peakValue.innerText = `${Math.abs(diffBull)} 天`;
                 peakValue.style.color = "#fff";
             }
 
-            // 熊市低点逻辑
+            // 熊市
             const bearDate = new Date("2026-10-05T00:00:00");
-            const diffBear = bearDate - now;
-            const daysToBear = Math.ceil(diffBear / (1000 * 60 * 60 * 24));
-            
+            const diffBear = Math.ceil((bearDate - now) / (86400000));
             const bearValue = document.getElementById('bear-days');
-            if (daysToBear > 0) {
-                bearValue.innerText = `${daysToBear} 天`;
-            } else {
-                bearValue.innerText = `已过 ${Math.abs(daysToBear)} 天`;
-            }
+            if (diffBear > 0) bearValue.innerText = `${diffBear} 天`;
+            else bearValue.innerText = `已过 ${Math.abs(diffBear)} 天`;
         }
         
-        // === 2. 实时价格逻辑 (币安API) ===
+        // === 2. 实时价格逻辑 (双重保险) ===
         async function updatePriceGap() {
             const BULL_PEAK = 126199;
             const BEAR_LOW = 38000;
             const gapElement = document.getElementById('price-gap');
+            let currentPrice = 0;
 
             try {
-                // 调用币安公开API获取 BTCUSDT 价格
+                // 优先尝试币安 (Binance)
                 const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
                 const data = await response.json();
-                const currentPrice = parseFloat(data.price);
-
-                if (!currentPrice) throw new Error("Price Error");
-
-                // 计算差价 (当前价格 - 预测低点)
-                const diffPrice = Math.floor(currentPrice - BEAR_LOW);
-                
-                // 计算跌幅百分比 ( (牛市顶点 - 当前价格) / 牛市顶点 )
-                let dropPercent = ((BULL_PEAK - currentPrice) / BULL_PEAK) * 100;
-                
-                // 格式化显示
-                // 如果差价大于0，显示还差多少；如果已经跌破，显示已跌破
-                let displayPrice = diffPrice > 0 ? `${diffPrice.toLocaleString()} U` : `已跌破!`;
-                
-                // 组合字符串：xx U (已跌 xx%)
-                gapElement.innerText = `${displayPrice} (已跌${dropPercent.toFixed(2)}%)`;
-
-            } catch (error) {
-                console.error("Binance API Error:", error);
-                gapElement.innerText = "获取价格失败";
-                gapElement.style.fontSize = "0.8rem";
+                currentPrice = parseFloat(data.price);
+            } catch (e) {
+                console.warn("Binance API连接受限，尝试切换 Mempool API...");
+                try {
+                    // 备用方案：Mempool (非常稳定)
+                    const resBackup = await fetch('https://mempool.space/api/v1/prices');
+                    const dataBackup = await resBackup.json();
+                    currentPrice = parseFloat(dataBackup.USD);
+                } catch (e2) {
+                    gapElement.innerText = "获取失败";
+                    return;
+                }
             }
+
+            if (!currentPrice) return;
+
+            // 计算逻辑
+            const diffPrice = Math.floor(currentPrice - BEAR_LOW);
+            let dropPercent = ((BULL_PEAK - currentPrice) / BULL_PEAK) * 100;
+            
+            let displayPrice = diffPrice > 0 ? `${diffPrice.toLocaleString()} U` : `已跌破!`;
+            
+            // 显示结果
+            gapElement.innerText = `${displayPrice} (已跌${dropPercent.toFixed(2)}%)`;
         }
 
-        // === 3. 区块链数据 ===
+        // === 3. 区块链数据 (BTC + LTC) ===
         const COINS = [
             { id: 'btc', name: 'Bitcoin', symbol: 'BTC', halvingBlock: 1050000, blockTimeSec: 600, api: 'https://mempool.space/api/blocks/tip/height', lastHalvingBlock: 840000 },
             { id: 'ltc', name: 'Litecoin', symbol: 'LTC', halvingBlock: 3360000, blockTimeSec: 150, api: 'https://api.blockcypher.com/v1/ltc/main', lastHalvingBlock: 2520000 }
@@ -262,9 +255,12 @@
                 try {
                     let currentHeight = await fetchBlockHeight(coin);
                     let blocksLeft = coin.halvingBlock - currentHeight;
+                    if (blocksLeft < 0) blocksLeft = 0; // 防止负数
+
                     let totalSecondsLeft = blocksLeft * coin.blockTimeSec;
                     let estDate = new Date(new Date().getTime() + totalSecondsLeft * 1000);
                     let progress = ((currentHeight - coin.lastHalvingBlock) / (coin.halvingBlock - coin.lastHalvingBlock)) * 100;
+                    progress = Math.min(100, Math.max(0, progress));
 
                     htmlContent += `
                         <div class="card ${coin.id}">
@@ -274,12 +270,12 @@
                             </div>
                             <div class="info-row"><span class="label">当前高度:</span><span class="value">#${currentHeight.toLocaleString()}</span></div>
                             <div class="info-row"><span class="label">减半高度:</span><span class="value">#${coin.halvingBlock.toLocaleString()}</span></div>
-                            <div class="progress-container"><div class="progress-bar" style="width: ${Math.min(100,Math.max(0,progress))}%"></div></div>
+                            <div class="progress-container"><div class="progress-bar" style="width: ${progress}%"></div></div>
                             <div style="text-align:right; font-size:12px; margin-top:5px; color:#8b949e">${progress.toFixed(2)}%</div>
                             <div class="countdown-box">
                                 <div class="label">预计减半倒计时</div>
                                 <div class="timer">${formatTime(totalSecondsLeft)}</div>
-                                <div class="date-est">预计: ${estDate.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}</div>
+                                <div class="date-est">预计: ${estDate.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit' })}</div>
                             </div>
                         </div>`;
                 } catch (error) {
@@ -297,11 +293,10 @@
 
         function formatTime(s) {
             if (s <= 0) return "已减半";
-            const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
-            return `${d}天 ${h}时 ${m}分`;
+            const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+            return `${d}天 ${h}时`;
         }
         
-        // 整合刷新功能
         function refreshAll() {
             updateDateInfo();
             updatePriceGap();
