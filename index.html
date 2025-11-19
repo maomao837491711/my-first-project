@@ -202,7 +202,7 @@
         }
         updateDateInfo();
 
-        // === 2. 多币种配置 (去除了 DOGE) ===
+        // === 2. 多币种配置 (无DOGE, ETC已修正) ===
         const COINS = [
             { 
                 id: 'btc', name: 'Bitcoin', symbol: 'BTC', 
@@ -224,7 +224,8 @@
             },
             { 
                 id: 'etc', name: 'ETC', symbol: 'ETC', 
-                targetBlock: 20000000, interval: 5000000, lastBlock: 15000000, timePerBlock: 13,
+                // 2025年时，目标是第5次减产(25M)，上次是20M(约2024年)
+                targetBlock: 25000000, interval: 5000000, lastBlock: 20000000, timePerBlock: 13,
                 api: 'https://etc.blockscout.com/api?module=block&action=eth_blockNumber', type: 'blockscout',
                 desc: '减产(20%)'
             }
@@ -243,9 +244,7 @@
                     // 计算逻辑
                     let blocksLeft = coin.targetBlock - currentHeight;
                     if (blocksLeft <= 0) {
-                         // 简单的自动周期递增逻辑，防止显示负数
-                         blocksLeft = coin.interval + blocksLeft; 
-                         // 注意：这里只是简单修正显示，严谨的做法需要更新lastBlock
+                         blocksLeft = 0; 
                     }
 
                     let totalSecondsLeft = blocksLeft * coin.timePerBlock;
