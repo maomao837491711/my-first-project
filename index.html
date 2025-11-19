@@ -2,65 +2,279 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <!-- 这一行确保在手机上显示比例正常 -->
+    <!-- 确保手机端显示正常 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的脚本工具</title>
+    <title>加密货币减半倒计时</title>
     <style>
-        body { 
-            font-family: sans-serif; 
-            padding: 20px; 
-            text-align: center; 
-            background-color: #f0f0f0;
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-main: #c9d1d9;
+            --text-highlight: #58a6ff;
+            --btc-color: #f7931a;
+            --ltc-color: #345d9d;
+            --border: #30363d;
         }
-        .box {
-            background: white;
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
             border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
         }
-        input {
-            width: 80%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 16px;
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
         }
-        button {
-            background-color: #2ea44f; /* GitHub绿 */
+        .card.btc::before { background-color: var(--btc-color); }
+        .card.ltc::before { background-color: var(--ltc-color); }
+
+        .coin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+        .coin-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        .coin-symbol {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            background: #21262d;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .label { color: #8b949e; }
+        .value { font-family: monospace; color: #e6edf3; }
+        
+        .countdown-box {
+            background: #000;
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+        .timer {
+            font-size: 1.8rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: var(--text-highlight);
+            margin: 5px 0;
+        }
+        .date-est {
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+        .progress-container {
+            margin-top: 15px;
+            background-color: #21262d;
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+        .loading { text-align: center; padding: 20px; color: #8b949e; }
+        .refresh-btn {
+            margin-top: 30px;
+            padding: 10px 20px;
+            background: #238636;
             color: white;
             border: none;
-            padding: 12px 24px;
-            font-size: 18px;
-            border-radius: 8px;
+            border-radius: 6px;
+            font-size: 1rem;
             cursor: pointer;
         }
-        button:active { background-color: #258542; }
+        .refresh-btn:active { background: #2ea043; }
+        
+        /* 针对 BTC 和 LTC 定义颜色 */
+        .btc .progress-bar { background-color: var(--btc-color); }
+        .ltc .progress-bar { background-color: var(--ltc-color); }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2>🚀 脚本运行成功</h2>
-        <p>这是你的专属网页工具</p>
-        
-        <!-- 这里是一个输入框示例 -->
-        <input type="text" id="myInput" placeholder="输入点什么试试...">
-        <br>
-        
-        <!-- 这里是按钮 -->
-        <button onclick="runMyScript()">点击运行</button>
+
+    <h1>⚖️ 减半倒计时监控</h1>
+
+    <div class="container" id="app">
+        <div class="loading">正在连接区块链节点获取最新区块...</div>
     </div>
 
+    <button class="refresh-btn" onclick="initData()">🔄 刷新数据</button>
+
     <script>
-        // 你的脚本逻辑写在这里
-        function runMyScript() {
-            var text = document.getElementById('myInput').value;
-            if (text) {
-                alert("你刚才输入了：" + text);
-            } else {
-                alert("你好！脚本逻辑正在浏览器中运行！");
+        // === 配置区域 ===
+        const COINS = [
+            {
+                id: 'btc',
+                name: 'Bitcoin',
+                symbol: 'BTC',
+                // 下一次减半目标区块 (2028年)
+                halvingBlock: 1050000, 
+                // 平均出块时间 (秒)
+                blockTimeSec: 600, 
+                // 真实 API (Mempool.space)
+                api: 'https://mempool.space/api/blocks/tip/height',
+                lastHalvingBlock: 840000
+            },
+            {
+                id: 'ltc',
+                name: 'Litecoin',
+                symbol: 'LTC',
+                // 下一次减半目标区块 (约2027年)
+                halvingBlock: 3360000, 
+                // 平均出块时间 (秒)
+                blockTimeSec: 150, 
+                // 真实 API (Blockcypher)
+                api: 'https://api.blockcypher.com/v1/ltc/main',
+                lastHalvingBlock: 2520000
             }
+        ];
+
+        // === 逻辑区域 ===
+        async function initData() {
+            const app = document.getElementById('app');
+            app.innerHTML = '<div class="loading">正在同步全网数据...</div>';
+            
+            let htmlContent = '';
+
+            for (let coin of COINS) {
+                try {
+                    // 1. 获取当前区块高度
+                    let currentHeight = await fetchBlockHeight(coin);
+                    
+                    // 2. 计算数据
+                    let blocksLeft = coin.halvingBlock - currentHeight;
+                    let totalSecondsLeft = blocksLeft * coin.blockTimeSec;
+                    
+                    // 计算预估日期 (北京时间)
+                    let now = new Date();
+                    let estDate = new Date(now.getTime() + totalSecondsLeft * 1000);
+                    let dateStr = estDate.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+                    
+                    // 计算进度百分比
+                    let totalInterval = coin.halvingBlock - coin.lastHalvingBlock;
+                    let progress = ((currentHeight - coin.lastHalvingBlock) / totalInterval) * 100;
+                    progress = Math.min(100, Math.max(0, progress)); // 限制在0-100
+
+                    // 3. 生成卡片 HTML
+                    htmlContent += `
+                        <div class="card ${coin.id}">
+                            <div class="coin-header">
+                                <span class="coin-name">${coin.name}</span>
+                                <span class="coin-symbol">${coin.symbol}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">当前高度:</span>
+                                <span class="value">#${currentHeight.toLocaleString()}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">减半高度:</span>
+                                <span class="value">#${coin.halvingBlock.toLocaleString()}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">剩余区块:</span>
+                                <span class="value" style="color:var(--text-highlight)">${blocksLeft.toLocaleString()}</span>
+                            </div>
+                            
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: ${progress}%"></div>
+                            </div>
+                            <div style="text-align:right; font-size:12px; margin-top:5px; color:#8b949e">进度: ${progress.toFixed(2)}%</div>
+
+                            <div class="countdown-box">
+                                <div class="label">预计减半时间 (倒计时)</div>
+                                <div class="timer">${formatTime(totalSecondsLeft)}</div>
+                                <div class="date-est">北京时间: ${dateStr}</div>
+                            </div>
+                        </div>
+                    `;
+
+                } catch (error) {
+                    console.error(error);
+                    htmlContent += `
+                        <div class="card">
+                            <div class="coin-header"><span class="coin-name">${coin.name}</span></div>
+                            <div style="color: red; text-align: center;">API 请求失败 (可能是频率限制)，请稍后刷新</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            app.innerHTML = htmlContent;
         }
+
+        // 获取区块高度的函数
+        async function fetchBlockHeight(coin) {
+            const response = await fetch(coin.api);
+            const data = await response.json();
+            
+            // 不同 API 返回格式不同，这里做个处理
+            if (coin.id === 'btc') {
+                return parseInt(data); // mempool 直接返回数字
+            } else if (coin.id === 'ltc') {
+                return data.height; // blockcypher 返回对象
+            }
+            return 0;
+        }
+
+        // 格式化时间 (天 时 分 秒)
+        function formatTime(seconds) {
+            if (seconds <= 0) return "已减半";
+            const d = Math.floor(seconds / (3600 * 24));
+            const h = Math.floor((seconds % (3600 * 24)) / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            return `${d}天 ${h}时 ${m}分`;
+        }
+
+        // 页面加载自动运行
+        initData();
+
     </script>
 </body>
 </html>
