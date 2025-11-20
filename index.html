@@ -44,6 +44,10 @@
         .btn:active { opacity: 0.8; }  
         .btn:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; opacity: 1; }  
         .tip { font-size: 12px; color: #484f58; margin-top: 10px; }  
+          
+        /* 更新时的闪烁 */  
+        @keyframes flash { 0% { opacity: 0.6; } 100% { opacity: 1; } }  
+        .updating { animation: flash 0.5s ease-out; }  
     </style>  
 </head>  
 <body>  
@@ -99,28 +103,18 @@
         </div>  
     </div>  
   
-    <button id="refresh-btn" class="btn" onclick="refreshAll()">🔄 刷新数据</button>  
-    <div class="tip">每 10 分钟自动刷新</div>  
+    <button id="refresh-btn" class="btn" onclick="manualRefresh()">🔄 手动刷新全部</button>  
+    <div class="tip">价格每 1 分钟自动更新 | 仅在页面显示时运行</div>  
   
     <script>  
-        // === 核心优化：极速超时控制 ===  
-        async function fetchWithTimeout(url, ms = 2000) { // 默认2秒超时，绝不傻等  
-            const controller = new AbortController();  
-            const id = setTimeout(() => controller.abort(), ms);  
-            try {  
-                const response = await fetch(url, { signal: controller.signal });  
-                clearTimeout(id);  
-                return response;  
-            } catch (error) {  
-                clearTimeout(id);  
-                throw error;  
-            }  
-        }  
+        const BULL_PEAK = 126199;  
+        const BEAR_LOW = 38000;  
   
+        // === 日期逻辑 ===  
         function updateDate() {  
             var now = new Date();  
             document.getElementById('today-date').innerText = now.toLocaleDateString('zh-CN');  
-              
+  
             var bullDate = new Date("2025-10-06").getTime();  
             var bearDate = new Date("2026-10-05").getTime();  
             var today = now.getTime();  
@@ -141,23 +135,29 @@
             document.getElementById('bear-days').innerText = diffBear + " 天";  
         }  
   
-        // === 价格获取：极速版 ===  
+        // === 价格逻辑 (调整顺序：CoinCap -> Mempool -> Binance) ===  
         async function updatePrice() {  
             var gapEl = document.getElementById('price-gap');  
-            gapEl.innerText = "同步中...";  
-            var peakPrice = 126199;  
             var price = 0;  
-              
-            // 顺序：Mempool (快,免翻) -> CoinCap (全球) -> Binance (需翻)  
+            var timestamp = new Date().getTime();  
+  
+            // 🏆 竞速顺序调整：  
+            // 1. CoinCap: 价格更准，免翻墙，放第一。  
+            // 2. Mempool: 极度稳定，作为最强备胎。  
+            // 3. Binance: 如果开了VPN，最后尝试它。  
             var apis = [  
-                { url: 'https://mempool.space/api/v1/prices', type: 'mempool' },  
-                { url: 'https://api.coincap.io/v2/assets/bitcoin', type: 'coincap' },  
-                { url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', type: 'binance' }  
+                { url: 'https://api.coincap.io/v2/assets/bitcoin?t=' + timestamp, type: 'coincap' },  
+                { url: 'https://mempool.space/api/v1/prices?t=' + timestamp, type: 'mempool' },  
+                { url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT&t=' + timestamp, type: 'binance' }  
             ];  
   
             for (var i = 0; i < apis.length; i++) {  
                 try {  
-                    var res = await fetchWithTimeout(apis[i].url, 2000); // 2秒超时  
+                    var controller = new AbortController();  
+                    var id = setTimeout(function() { controller.abort(); }, 2500);  
+                    var res = await fetch(apis[i].url, { signal: controller.signal });  
+                    clearTimeout(id);  
+  
                     if (res.ok) {  
                         var data = await res.json();  
                         if (apis[i].type === 'mempool') price = parseFloat(data.USD);  
@@ -169,52 +169,36 @@
             }  
   
             if (price > 0) {  
-                var diff = Math.floor(price - 38000);  
-                var drop = ((peakPrice - price) / peakPrice * 100).toFixed(2);  
-                gapEl.className = "val bright-red";   
+                var diff = Math.floor(price - BEAR_LOW);  
+                var drop = ((BULL_PEAK - price) / BULL_PEAK * 100).toFixed(2);  
+                  
+                gapEl.classList.remove('updating');  
+                void gapEl.offsetWidth;   
+                gapEl.classList.add('updating');  
+  
+                gapEl.className = "val bright-red updating";   
                 if (diff > 0) gapEl.innerText = diff.toLocaleString() + " U (已跌" + drop + "%)";  
                 else gapEl.innerText = "已跌破底价!";  
-            } else {  
-                gapEl.innerText = "网络稍慢";  
             }  
         }  
   
-        // === BTC 数据 ===  
-        async function updateBTC() {  
+        // === 区块逻辑 ===  
+        async function fetchBlockHeight(url) {  
             try {  
-                var res = await fetchWithTimeout('https://mempool.space/api/blocks/tip/height', 3000);  
-                var height = await res.json();  
-                renderBlockData(height, 1050000, 840000, 600, 'btc');  
-            } catch (e) {  
-                document.getElementById('btc-height').innerText = "同步中...";  
-            }  
+                var controller = new AbortController();  
+                var id = setTimeout(function() { controller.abort(); }, 4000);  
+                var res = await fetch(url, { signal: controller.signal });  
+                clearTimeout(id);  
+                return await res.json();  
+            } catch(e) { return null; }  
         }  
   
-        // === LTC 数据 (增加备用源，防止VPN下BlockCypher卡死) ===  
-        async function updateLTC() {  
-            var height = 0;  
-            var apis = [  
-                { url: 'https://api.blockcypher.com/v1/ltc/main', type: 'cypher' }, // 易被VPN墙  
-                { url: 'https://api.blockchair.com/litecoin/stats', type: 'blockchair' } // 备用  
-            ];  
+        async function updateBlocks() {  
+            var btcHeight = await fetchBlockHeight('https://mempool.space/api/blocks/tip/height');  
+            if(btcHeight) renderBlockData(btcHeight, 1050000, 840000, 600, 'btc');  
   
-            for(var i=0; i<apis.length; i++) {  
-                try {  
-                    var res = await fetchWithTimeout(apis[i].url, 2500); // 2.5秒超时  
-                    if(res.ok) {  
-                        var data = await res.json();  
-                        if(apis[i].type === 'cypher') height = data.height;  
-                        else if(apis[i].type === 'blockchair') height = data.data.blocks;  
-                        if(height > 0) break;  
-                    }  
-                } catch(e){}  
-            }  
-  
-            if(height > 0) {  
-                renderBlockData(height, 3360000, 2520000, 150, 'ltc');  
-            } else {  
-                document.getElementById('ltc-height').innerText = "VPN限速";  
-            }  
+            var ltcData = await fetchBlockHeight('https://api.blockcypher.com/v1/ltc/main');  
+            if(ltcData && ltcData.height) renderBlockData(ltcData.height, 3360000, 2520000, 150, 'ltc');  
         }  
   
         function renderBlockData(height, halving, last, time, id) {  
@@ -226,7 +210,7 @@
               
             document.getElementById(id + '-prog-bar').style.width = percent + "%";  
             document.getElementById(id + '-prog-txt').innerText = percent.toFixed(2) + "%";  
-  
+              
             var days = Math.floor(totalSeconds / 86400);  
             var hours = Math.floor((totalSeconds % 86400) / 3600);  
             document.getElementById(id + '-timer').innerText = days + "天 " + hours + "时";  
@@ -236,30 +220,27 @@
             document.getElementById(id + '-date').innerText = "预计: " + ds;  
         }  
   
-        async function refreshAll() {  
+        // === 手动刷新 ===  
+        async function manualRefresh() {  
             var btn = document.getElementById('refresh-btn');  
-            var oldText = btn.innerText;  
-            btn.innerText = "⏳";  
-            btn.disabled = true;  
-            btn.style.opacity = "0.8";  
-  
+            btn.innerText = "⏳"; btn.disabled = true; btn.style.opacity = "0.8";  
+              
             updateDate();  
             updatePrice();  
-            updateBTC();  
-            updateLTC();  
+            updateBlocks();  
   
             setTimeout(function() {  
                 btn.innerText = "✅";  
-                setTimeout(function() {  
-                    btn.innerText = oldText;  
-                    btn.disabled = false;  
-                    btn.style.opacity = "1";  
-                }, 800);  
+                setTimeout(function() { btn.innerText = "🔄 手动刷新全部"; btn.disabled = false; btn.style.opacity = "1"; }, 1000);  
             }, 1000);  
         }  
   
-        refreshAll();  
-        setInterval(refreshAll, 600000);  
+        // 启动  
+        manualRefresh();  
+  
+        // 定时策略  
+        setInterval(function() { if (!document.hidden) updatePrice(); }, 60000); // 价格1分钟  
+        setInterval(function() { if (!document.hidden) { updateBlocks(); updateDate(); } }, 600000); // 区块10分钟  
     </script>  
 </body>  
 </html>  
