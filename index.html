@@ -45,8 +45,15 @@
         .btn:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; opacity: 1; }  
         .tip { font-size: 12px; color: #484f58; margin-top: 10px; }  
           
-        @keyframes fade { 0% { opacity: 0.6; } 100% { opacity: 1; } }  
-        .updating { animation: fade 0.5s ease-out; }  
+        /* 心跳指示灯 */  
+        .pulse-dot {  
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #3fb950;  
+            margin-left: 8px; opacity: 0; transition: opacity 0.3s;  
+        }  
+        .pulse-active { opacity: 1; }  
+          
+        /* 更新时间小字 */  
+        .update-time { font-size: 0.7rem; color: #8b949e; margin-top: 4px; text-align: right; }  
     </style>  
 </head>  
 <body>  
@@ -66,7 +73,17 @@
             <div style="margin:10px 0; border-top:1px dashed #30363d"></div>  
             <div class="row"><span class="label">距离牛市顶点已过</span><span class="val" id="peak-days">--</span></div>  
             <div class="row"><span class="label">距离熊市低点</span><span class="val white" id="bear-days">--</span></div>  
-            <div class="row"><span class="label">距离最低点还差</span><span class="val bright-red" id="price-gap">加载中...</span></div>  
+              
+            <!-- 价格行 -->  
+            <div class="row">  
+                <span class="label">距离最低点还差</span>  
+                <div style="text-align:right">  
+                    <span class="val bright-red" id="price-gap">加载中...</span>  
+                    <span id="status-dot" class="pulse-dot"></span>  
+                </div>  
+            </div>  
+            <!-- 新增：最后更新时间 -->  
+            <div class="update-time" id="last-update-time">等待同步...</div>  
         </div>  
   
         <div class="card btc">  
@@ -103,24 +120,19 @@
     </div>  
   
     <button id="refresh-btn" class="btn" onclick="manualRefresh()">🔄 手动刷新全部</button>  
-    <div class="tip">价格每 5 秒自动更新 | 智能防卡顿</div>  
+    <div class="tip">价格每 5 秒自动更新 | 数据可视化心跳</div>  
   
     <script>  
         const BULL_PEAK = 126199;  
         const BEAR_LOW = 38000;  
   
-        // === 🔒 智能锁 (防卡顿核心) ===  
-        let isPriceUpdating = false; // 如果为 true，说明上次请求还没回来，这次就不发了  
-        let isBlockUpdating = false;  
-  
         function updateDate() {  
             var now = new Date();  
             document.getElementById('today-date').innerText = now.toLocaleDateString('zh-CN');  
-  
+            // ... (日期逻辑不变) ...  
             var bullDate = new Date("2025-10-06").getTime();  
             var bearDate = new Date("2026-10-05").getTime();  
             var today = now.getTime();  
-  
             var diffBull = Math.floor((bullDate - today) / 86400000);  
             var peakEl = document.getElementById('peak-days');  
             if (diffBull > 0) {  
@@ -132,18 +144,15 @@
                 peakEl.className = "val";  
                 peakEl.previousElementSibling.innerText = "距离牛市顶点已过";  
             }  
-  
             var diffBear = Math.ceil((bearDate - today) / 86400000);  
             document.getElementById('bear-days').innerText = diffBear + " 天";  
         }  
   
-        // === 价格逻辑 (5秒极速 + 智能锁) ===  
+        // === 价格逻辑 (增加视觉反馈) ===  
         async function updatePrice() {  
-            // 🛑 红灯停：如果上次还没刷完，这次直接跳过，绝对不卡  
-            if (isPriceUpdating) return;   
-            isPriceUpdating = true; // 🟢 绿灯行：上锁  
-  
             var gapEl = document.getElementById('price-gap');  
+            var timeEl = document.getElementById('last-update-time');  
+            var dotEl = document.getElementById('status-dot');  
             var price = 0;  
             var timestamp = new Date().getTime();  
   
@@ -156,7 +165,7 @@
             for (var i = 0; i < apis.length; i++) {  
                 try {  
                     var controller = new AbortController();  
-                    var id = setTimeout(function() { controller.abort(); }, 2500);  
+                    var id = setTimeout(function() { controller.abort(); }, 2000);  
                     var res = await fetch(apis[i].url, { signal: controller.signal });  
                     clearTimeout(id);  
   
@@ -174,19 +183,21 @@
                 var diff = Math.floor(price - BEAR_LOW);  
                 var drop = ((BULL_PEAK - price) / BULL_PEAK * 100).toFixed(2);  
                   
-                gapEl.classList.remove('updating');  
-                void gapEl.offsetWidth;   
-                gapEl.classList.add('updating');  
-                gapEl.className = "val bright-red updating";   
-                  
+                gapEl.className = "val bright-red";   
                 if (diff > 0) gapEl.innerText = diff.toLocaleString() + " U (已跌" + drop + "%)";  
                 else gapEl.innerText = "已跌破底价!";  
+  
+                // 更新时间戳  
+                var now = new Date();  
+                timeEl.innerText = "更新于 " + now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0') + ":" + now.getSeconds().toString().padStart(2,'0');  
+                  
+                // 闪烁绿点  
+                dotEl.classList.add('pulse-active');  
+                setTimeout(function() { dotEl.classList.remove('pulse-active'); }, 500);  
             }  
-              
-            // ✅ 任务完成，解锁  
-            isPriceUpdating = false;  
         }  
   
+        // ... (区块逻辑不变) ...  
         async function fetchBlockHeight(url) {  
             try {  
                 var controller = new AbortController();  
@@ -198,16 +209,10 @@
         }  
   
         async function updateBlocks() {  
-            if (isBlockUpdating) return;  
-            isBlockUpdating = true;  
-  
             var btcHeight = await fetchBlockHeight('https://mempool.space/api/blocks/tip/height');  
             if(btcHeight) renderBlockData(btcHeight, 1050000, 840000, 600, 'btc');  
-  
             var ltcData = await fetchBlockHeight('https://api.blockcypher.com/v1/ltc/main');  
             if(ltcData && ltcData.height) renderBlockData(ltcData.height, 3360000, 2520000, 150, 'ltc');  
-              
-            isBlockUpdating = false;  
         }  
   
         function renderBlockData(height, halving, last, time, id) {  
@@ -219,11 +224,9 @@
               
             document.getElementById(id + '-prog-bar').style.width = percent + "%";  
             document.getElementById(id + '-prog-txt').innerText = percent.toFixed(2) + "%";  
-              
             var days = Math.floor(totalSeconds / 86400);  
             var hours = Math.floor((totalSeconds % 86400) / 3600);  
             document.getElementById(id + '-timer').innerText = days + "天 " + hours + "时";  
-  
             var d = new Date(new Date().getTime() + totalSeconds * 1000);  
             var ds = d.getFullYear() + "/" + (d.getMonth()+1).toString().padStart(2,'0') + "/" + d.getDate().toString().padStart(2,'0') + " " + d.getHours().toString().padStart(2,'0') + ":" + d.getMinutes().toString().padStart(2,'0');  
             document.getElementById(id + '-date').innerText = "预计: " + ds;  
@@ -234,10 +237,6 @@
             btn.innerText = "⏳"; btn.disabled = true; btn.style.opacity = "0.8";  
               
             updateDate();  
-            // 手动刷新时，强制重置锁，确保能刷  
-            isPriceUpdating = false;  
-            isBlockUpdating = false;  
-              
             await Promise.all([updatePrice(), updateBlocks()]);  
   
             setTimeout(function() {  
@@ -248,9 +247,8 @@
   
         manualRefresh();  
   
-        // ⚡️ 5秒刷新价格（带防堆积锁）  
+        // 5秒心跳  
         setInterval(function() { if (!document.hidden) updatePrice(); }, 5000);  
-        // 🐢 10分钟刷新区块  
         setInterval(function() { if (!document.hidden) { updateBlocks(); updateDate(); } }, 600000);  
     </script>  
 </body>  
