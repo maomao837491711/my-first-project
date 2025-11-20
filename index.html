@@ -15,23 +15,38 @@
     <meta name="apple-mobile-web-app-title" content="周期监控">  
   
     <style>  
-        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --btc: #f7931a; --ltc: #345d9d; --bull: #238636; --bear: #da3633; --gold: #d29922; --border: #30363d; }  
+        :root {   
+            --bg: #0d1117;   
+            --card: #161b22;   
+            --text: #c9d1d9;   
+            --bull: #238636;   
+            --bear: #da3633;   
+            --gold: #d29922;   
+            --border: #30363d;   
+        }  
         * { box-sizing: border-box; }  
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; padding-top: max(15px, env(safe-area-inset-top)); }  
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, "SF Pro Text", sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; padding-top: max(15px, env(safe-area-inset-top)); }  
         h1 { text-align: center; font-size: 1.4rem; margin: 10px 0 15px; text-transform: uppercase; }  
         .container { width: 100%; max-width: 600px; gap: 15px; display: flex; flex-direction: column; }  
+          
         .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }  
         .prediction-card { border: 1px solid rgba(210, 153, 34, 0.3); background: linear-gradient(180deg, rgba(210, 153, 34, 0.08) 0%, rgba(22, 27, 34, 1) 100%); }  
+          
         .pred-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); align-items: center; }  
         .pred-row:last-child { border-bottom: none; }  
         .pred-label { color: #8b949e; font-size: 0.9rem; }  
         .pred-value { font-family: monospace; font-weight: 600; font-size: 1rem; }  
+          
         .coin-header { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }  
         .coin-name { font-size: 1.3rem; font-weight: 700; color: #fff; }  
         .coin-symbol { font-size: 0.9rem; background: #30363d; padding: 4px 8px; border-radius: 6px; color: white; }  
+          
         .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }  
-        .progress-container { margin-top: 15px; background: #21262d; border-radius: 10px; height: 8px; overflow: hidden; }  
-        .progress-bar { height: 100%; border-radius: 10px; transition: width 1s ease; }  
+          
+        /* 修复进度条不显示的问题 */  
+        .progress-container { margin-top: 15px; background: #21262d; border-radius: 10px; height: 8px; overflow: hidden; width: 100%; }  
+        .progress-bar { height: 100%; border-radius: 10px; transition: width 1s ease; display: block; }  
+          
         .countdown-box { background: rgba(13, 17, 23, 0.6); margin-top: 15px; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #30363d; }  
         .timer { font-size: 1.8rem; font-weight: 800; font-family: monospace; color: #58a6ff; margin: 5px 0; }  
           
@@ -40,8 +55,10 @@
         .auto-refresh-tip { font-size: 12px; color: #484f58; margin-bottom: 40px; text-align: center; }  
           
         .bull-val { color: var(--bull); } .bear-val { color: var(--bear); } .gold-val { color: var(--gold); } .price-diff { color: #ff7b72; font-weight: bold; }  
-        .card.btc::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background-color: var(--btc); }  
-        .card.ltc::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background-color: var(--ltc); }  
+          
+        /* 侧边颜色条 */  
+        .card.btc::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background-color: #f7931a; }  
+        .card.ltc::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background-color: #345d9d; }  
     </style>  
 </head>  
 <body>  
@@ -58,10 +75,14 @@
             <div class="pred-row"><span class="pred-label">🐂 牛市顶点日期</span><span class="pred-value bull-val">2025-10-06</span></div>  
             <div class="pred-row"><span class="pred-label">🐻 熊市低点日期</span><span class="pred-value bear-val">2026-10-05</span></div>  
             <div class="pred-row"><span class="pred-label">📈 本轮牛市最高价</span><span class="pred-value gold-val">126,199 U</span></div>  
-            <div class="pred-row"><span class="pred-label">📉 预测熊市低点</span><span class="pred-value bear-val">38,000 U</span></div>  
+            <!-- 找回了 (-70%) -->  
+            <div class="pred-row"><span class="pred-label">📉 预测熊市低点 (-70%)</span><span class="pred-value bear-val">38,000 U</span></div>  
+              
             <div style="border-top: 1px dashed #30363d; margin: 10px 0;"></div>  
+              
             <div class="pred-row"><span class="pred-label" id="peak-label">距离牛市顶点</span><span class="pred-value" style="color:#fff;" id="peak-days">--</span></div>  
             <div class="pred-row"><span class="pred-label">距离熊市低点</span><span class="pred-value bear-val" id="bear-days">--</span></div>  
+            <!-- 找回了百分比计算 -->  
             <div class="pred-row"><span class="pred-label">距离最低点还差</span><span class="pred-value price-diff" id="price-gap">获取中...</span></div>  
         </div>  
         <div id="app"></div>  
@@ -96,24 +117,31 @@
             document.getElementById('bear-days').innerText = diffBear > 0 ? `$${diffBear} 天` : `已过 $${Math.abs(diffBear)} 天`;  
         }  
   
-        // 2. 价格逻辑 (只用币安，最稳)  
+        // 2. 价格逻辑 (修复百分比显示)  
         async function updatePrice() {  
             const gapEl = document.getElementById('price-gap');  
+            const BULL_PEAK = 126199;  
             try {  
                 const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');  
                 const data = await res.json();  
                 const price = parseFloat(data.price);  
+                  
+                // 核心修复：计算跌幅百分比  
                 const diff = Math.floor(price - 38000);  
-                gapEl.innerText = diff > 0 ? `${diff.toLocaleString()} U` : `已跌破!`;  
+                const dropPercent = ((BULL_PEAK - price) / BULL_PEAK * 100).toFixed(2);  
+                  
+                // 核心修复：显示格式 xx U (xx%)  
+                gapEl.innerText = diff > 0 ? `$${diff.toLocaleString()} U (已跌$${dropPercent}%)` : `已跌破!`;  
             } catch (e) {  
                 gapEl.innerText = "连接超时";  
             }  
         }  
   
-        // 3. 区块逻辑 (只用 Mempool 和 BlockCypher)  
+        // 3. 区块逻辑 (修复进度条和文本显示)  
         const COINS = [  
-            { id: 'btc', name: 'Bitcoin', symbol: 'BTC', halving: 1050000, last: 840000, time: 600, api: 'https://mempool.space/api/blocks/tip/height' },  
-            { id: 'ltc', name: 'Litecoin', symbol: 'LTC', halving: 3360000, last: 2520000, time: 150, api: 'https://api.blockcypher.com/v1/ltc/main' }  
+            // 直接指定 color，确保进度条有颜色  
+            { id: 'btc', name: 'Bitcoin', symbol: 'BTC', color: '#f7931a', halving: 1050000, last: 840000, time: 600, api: 'https://mempool.space/api/blocks/tip/height' },  
+            { id: 'ltc', name: 'Litecoin', symbol: 'LTC', color: '#345d9d', halving: 3360000, last: 2520000, time: 150, api: 'https://api.blockcypher.com/v1/ltc/main' }  
         ];  
   
         async function updateBlocks() {  
@@ -127,7 +155,6 @@
                 try {  
                     const res = await fetch(coin.api);  
                     const data = await res.json();  
-                    // 判断数据格式：BTC返回数字，LTC返回对象  
                     if (typeof data === 'number') height = data;  
                     else if (data.height) height = data.height;  
                     else throw new Error('Format Error');  
@@ -142,19 +169,30 @@
   
                 let left = Math.max(0, coin.halving - height);  
                 let sec = left * coin.time;  
+                // 修复日期显示的格式  
                 let date = new Date(Date.now() + sec * 1000).toLocaleString('zh-CN', {year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false});  
                 let prog = Math.min(100, Math.max(0, ((height - coin.last) / (coin.halving - coin.last)) * 100));  
+                  
+                // 修复文本乱码问题 (明确变量，不用复杂的模板嵌套)  
+                let days = Math.floor(sec/86400);  
+                let hours = Math.floor((sec%86400)/3600);  
   
                 html += `  
                     <div class="card ${coin.id}">  
                         <div class="coin-header"><span class="coin-name">$${coin.name}</span><span class="coin-symbol">$${coin.symbol}</span></div>  
                         <div class="info-row"><span class="label">当前高度:</span><span style="font-family:monospace;color:#e6edf3">#${height.toLocaleString()}</span></div>  
                         <div class="info-row"><span class="label">减半高度:</span><span style="font-family:monospace;color:#e6edf3">#${coin.halving.toLocaleString()}</span></div>  
-                        <div class="progress-container"><div class="progress-bar" style="width:$${prog}%; background-color:var(--$${coin.id})"></div></div>  
+                          
+                        <!-- 修复：进度条直接使用内联颜色，防止变量失效 -->  
+                        <div class="progress-container">  
+                            <div class="progress-bar" style="width:$${prog}%; background-color:$${coin.color};"></div>  
+                        </div>  
+                          
                         <div style="text-align:right;font-size:12px;color:#8b949e;margin-top:5px;">${prog.toFixed(2)}%</div>  
                         <div class="countdown-box">  
                             <div style="color:#8b949e;font-size:0.9rem">预计减半倒计时</div>  
-                            <div class="timer" style="color:#58a6ff">$${Math.floor(sec/86400)}天 $${Math.floor((sec%86400)/3600)}时</div>  
+                            <!-- 修复：简洁的文本拼接，去掉可能导致乱码的符号 -->  
+                            <div class="timer" style="color:#58a6ff">$${days}天 $${hours}时</div>  
                             <div style="color:#8b949e;font-size:0.85rem">预计: ${date}</div>  
                         </div>  
                     </div>`;  
@@ -170,7 +208,6 @@
   
         // 启动  
         runData();  
-        // 10分钟刷新一次  
         setInterval(runData, 600000);  
     </script>  
 </body>  
