@@ -30,16 +30,15 @@
         .val { font-family: monospace; font-weight: bold; color: #e6edf3; }  
           
         /* 颜色定义 */  
-        .green { color: #3fb950; }  
-        .red { color: #ff7b72; }  
-        .gold { color: #d29922; }  
-        .blue { color: #58a6ff; }  
+        .green { color: #3fb950 !important; }  
+        .red { color: #ff7b72 !important; }  
+        .gold { color: #d29922 !important; }  
           
         /* 进度条容器 */  
         .progress-box { margin-top: 12px; background: #21262d; border-radius: 6px; height: 8px; overflow: hidden; width: 100%; }  
         .progress-fill { height: 100%; border-radius: 6px; transition: width 1s; display: block; }  
           
-        /* 强制定义颜色，防止JS变量失效 */  
+        /* 强制定义颜色 */  
         .bg-btc { background-color: #f7931a !important; }  
         .bg-ltc { background-color: #345d9d !important; }  
           
@@ -48,7 +47,10 @@
         .big-time { font-size: 1.5rem; font-weight: 800; color: #58a6ff; margin: 5px 0; letter-spacing: 0.5px; font-family: monospace; }  
           
         /* 按钮 */  
-        .btn { margin-top: 30px; padding: 12px 30px; background: #238636; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; }  
+        .btn { margin-top: 30px; padding: 12px 30px; background: #238636; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: all 0.3s; }  
+        .btn:active { transform: scale(0.95); }  
+        .btn:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; }  
+          
         .tip { font-size: 12px; color: #484f58; margin-top: 10px; }  
           
         /* 左侧装饰条 */  
@@ -69,15 +71,18 @@
             </div>  
             <div class="row"><span class="label">🐂 牛市顶点日期</span><span class="val green">2025-10-06</span></div>  
             <div class="row"><span class="label">🐻 熊市低点日期</span><span class="val red">2026-10-05</span></div>  
-            <div class="row"><span class="label">📈 本轮牛市最高价</span><span class="val gold">126,199 U</span></div>  
-            <!-- 找回了 (-70%) -->  
+              
+            <!-- 这里的 126,199 U 已经按要求改为绿色 (class="val green") -->  
+            <div class="row"><span class="label">📈 本轮牛市最高价</span><span class="val green">126,199 U</span></div>  
+              
             <div class="row"><span class="label">📉 预测熊市低点 (-70%)</span><span class="val red">38,000 U</span></div>  
               
             <div style="margin:10px 0; border-top:1px dashed #30363d"></div>  
               
             <div class="row"><span class="label">距离牛市顶点已过</span><span class="val" id="peak-days">--</span></div>  
             <div class="row"><span class="label">距离熊市低点</span><span class="val red" id="bear-days">--</span></div>  
-            <!-- 找回了跌幅百分比 -->  
+              
+            <!-- 这里的 ID 确保了它是红色 -->  
             <div class="row"><span class="label">距离最低点还差</span><span class="val red" id="price-gap">计算中...</span></div>  
         </div>  
   
@@ -85,7 +90,8 @@
         <div id="app"></div>  
     </div>  
   
-    <button class="btn" onclick="refreshData()">🔄 刷新数据</button>  
+    <!-- 给按钮加了ID，用于JS控制交互 -->  
+    <button id="refresh-btn" class="btn" onclick="refreshData()">🔄 刷新数据</button>  
     <div class="tip">每 10 分钟自动刷新</div>  
   
     <script>  
@@ -94,7 +100,6 @@
             var now = new Date();  
             document.getElementById('today-date').innerText = now.toLocaleDateString('zh-CN');  
   
-            // 计算天数 (使用最原始的数学计算，防止兼容性问题)  
             var bullDate = new Date("2025-10-06").getTime();  
             var bearDate = new Date("2026-10-05").getTime();  
             var today = now.getTime();  
@@ -118,7 +123,7 @@
             document.getElementById('bear-days').innerText = diffBear + " 天";  
         }  
   
-        // === 2. 价格逻辑 (找回百分比) ===  
+        // === 2. 价格逻辑 ===  
         async function updatePrice() {  
             var gapEl = document.getElementById('price-gap');  
             var peakPrice = 126199;  
@@ -127,13 +132,13 @@
                 var data = await res.json();  
                 var price = parseFloat(data.price);  
                   
-                // 计算差价  
                 var diff = Math.floor(price - 38000);  
-                // 计算跌幅 (找回百分比功能)  
                 var drop = ((peakPrice - price) / peakPrice * 100).toFixed(2);  
                   
+                // 强制应用红色样式  
+                gapEl.className = "val red";   
+  
                 if (diff > 0) {  
-                    // 使用 + 号拼接，杜绝 $ 乱码  
                     gapEl.innerText = diff.toLocaleString() + " U (已跌" + drop + "%)";  
                 } else {  
                     gapEl.innerText = "已跌破底价!";  
@@ -143,8 +148,7 @@
             }  
         }  
   
-        // === 3. 区块逻辑 (修复进度条和乱码) ===  
-        // 为了绝对稳定，颜色不再用变量传，直接写死在 CSS 类里  
+        // === 3. 区块逻辑 ===  
         var COINS = [  
             { id: 'btc', name: 'Bitcoin', symbol: 'BTC', halving: 1050000, last: 840000, time: 600, api: 'https://mempool.space/api/blocks/tip/height', cssClass: 'bg-btc' },  
             { id: 'ltc', name: 'Litecoin', symbol: 'LTC', halving: 3360000, last: 2520000, time: 150, api: 'https://api.blockcypher.com/v1/ltc/main', cssClass: 'bg-ltc' }  
@@ -173,11 +177,9 @@
                     continue;  
                 }  
   
-                // 计算逻辑  
                 var left = Math.max(0, coin.halving - height);  
                 var totalSeconds = left * coin.time;  
                   
-                // 进度条百分比  
                 var totalSpan = coin.halving - coin.last;  
                 var doneSpan = height - coin.last;  
                 var percent = ((doneSpan / totalSpan) * 100);  
@@ -185,12 +187,10 @@
                 if(percent < 0) percent = 0;  
                 var percentStr = percent.toFixed(2) + "%";  
   
-                // 倒计时文字 (使用 + 号拼接，修复 $ 乱码)  
                 var days = Math.floor(totalSeconds / 86400);  
                 var hours = Math.floor((totalSeconds % 86400) / 3600);  
                 var timeText = days + "天 " + hours + "时";  
   
-                // 预计日期  
                 var dateObj = new Date(new Date().getTime() + totalSeconds * 1000);  
                 var dateStr = dateObj.getFullYear() + "/" +   
                               (dateObj.getMonth()+1).toString().padStart(2,'0') + "/" +   
@@ -198,42 +198,50 @@
                               dateObj.getHours().toString().padStart(2,'0') + ":" +   
                               dateObj.getMinutes().toString().padStart(2,'0');  
   
-                // HTML 拼接 (最原始写法，最安全)  
                 html += '<div class="card ' + coin.id + '">';  
-                  
-                // 标题行  
                 html += '<div class="row" style="margin-bottom:10px">';  
                 html += '<span style="font-size:1.3rem; font-weight:bold; color:white">' + coin.name + '</span>';  
                 html += '<span style="background:#30363d; padding:2px 6px; border-radius:4px; font-size:0.8rem">' + coin.symbol + '</span>';  
                 html += '</div>';  
-  
-                // 高度行  
                 html += '<div class="row"><span class="label">当前高度:</span><span class="val">#' + height.toLocaleString() + '</span></div>';  
                 html += '<div class="row"><span class="label">减半高度:</span><span class="val">#' + coin.halving.toLocaleString() + '</span></div>';  
-  
-                // 进度条 (修复：使用 CSS class 强制颜色)  
-                html += '<div class="progress-box">';  
-                html += '<div class="progress-fill ' + coin.cssClass + '" style="width:' + percentStr + '"></div>';  
-                html += '</div>';  
+                html += '<div class="progress-box"><div class="progress-fill ' + coin.cssClass + '" style="width:' + percentStr + '"></div></div>';  
                 html += '<div style="text-align:right; font-size:12px; color:#8b949e; margin-top:4px">' + percentStr + '</div>';  
-  
-                // 倒计时大框  
                 html += '<div class="timer-box">';  
                 html += '<div class="label" style="font-size:0.9rem">预计减半倒计时</div>';  
                 html += '<div class="big-time">' + timeText + '</div>';  
                 html += '<div class="label" style="font-size:0.8rem">预计: ' + dateStr + '</div>';  
-                html += '</div>';  
-  
-                html += '</div>'; // end card  
+                html += '</div></div>';  
             }  
-              
             container.innerHTML = html;  
         }  
   
-        function refreshData() {  
+        // === 4. 刷新按钮逻辑 (增加反馈) ===  
+        async function refreshData() {  
+            var btn = document.getElementById('refresh-btn');  
+            var oldText = btn.innerText;  
+              
+            // 点击后立刻变灰并显示加载文字  
+            btn.innerText = "⏳ 正在刷新...";  
+            btn.disabled = true;  
+            btn.style.opacity = "0.7";  
+  
+            // 强制延迟 500毫秒，让用户能看清按钮变了（防止网速太快闪一下就没了）  
+            await new Promise(r => setTimeout(r, 500));  
+  
             updateDate();  
-            updatePrice();  
-            updateBlocks();  
+            // 等待所有请求完成  
+            await Promise.all([updatePrice(), updateBlocks()]);  
+  
+            // 刷新完成反馈  
+            btn.innerText = "✅ 刷新成功";  
+              
+            // 1秒后恢复原状  
+            setTimeout(function() {  
+                btn.innerText = oldText;  
+                btn.disabled = false;  
+                btn.style.opacity = "1";  
+            }, 1000);  
         }  
   
         // 启动  
