@@ -11,7 +11,7 @@
     <meta name="theme-color" content="#0d1117">  
   
     <style>  
-        /* === 基础样式保持不变 === */
+        /* === 基础样式 === */
         body { background-color: #0d1117; color: #c9d1d9; font-family: -apple-system, "SF Pro Text", sans-serif; margin: 0; padding: 20px 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }  
         h1 { font-size: 1.2rem; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; width: 100%; max-width: 600px; justify-content: space-between; }  
         .container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 15px; }  
@@ -50,7 +50,7 @@
         .pulse-active { opacity: 1; }  
         .update-time { font-size: 0.7rem; color: #8b949e; margin-top: 4px; text-align: right; }  
 
-        /* === 矿机入口及页面样式 === */
+        /* === 矿机样式 === */
         .hidden { display: none !important; }
         .btn-outline { background: transparent; border: 1px solid #30363d; color: #58a6ff; margin-top: 15px; }
         
@@ -136,7 +136,7 @@
         <div class="tip">价格每 10 秒自动更新 | 数据可视化心跳</div>  
     </div>  
 
-    <!-- ============ 2. 矿机页面 (隐藏) ============ -->
+    <!-- ============ 2. 矿机页面 ============ -->
     <div id="miner-container" class="container hidden">
         <div class="card">
             <div class="row" style="border-bottom:none">
@@ -157,11 +157,10 @@
     <script>  
         const BULL_PEAK = 126199;  
         const BEAR_LOW = 38000;  
-        // 矿机配置
         const ELEC_COST = 0.06;
         const MINERS = [
-            { name: "Antminer S19 Pro", hash: 110, watts: 3250, tag: "第一支撑", color: "#d29922" },
             { name: "WhatsMiner M30S++", hash: 112, watts: 3472, tag: "第一支撑", color: "#d29922" },
+            { name: "Antminer S19 Pro", hash: 110, watts: 3250, tag: "第一支撑", color: "#d29922" },
             { name: "Antminer S19 XP", hash: 141, watts: 3031, tag: "黄金坑", color: "#e6edf3" },
             { name: "Antminer S21", hash: 200, watts: 3500, tag: "钻石坑", color: "#3fb950" }
         ];
@@ -169,7 +168,6 @@
         let currentPrice = 0;
         let currentDiff = 0;
 
-        // 切换视图
         function showMiner() {
             document.getElementById('home-container').classList.add('hidden');
             document.getElementById('miner-container').classList.remove('hidden');
@@ -207,7 +205,7 @@
             document.getElementById('bear-days').innerText = diffBear + " 天";  
         }  
   
-        // === 【价格更新逻辑调整】 ===
+        // === 核心逻辑 1：多线路价格获取 ===
         async function updatePrice() {  
             var gapEl = document.getElementById('price-gap');  
             var timeEl = document.getElementById('last-update-time');  
@@ -217,14 +215,13 @@
   
             // 优先级：CoinCap -> Mempool
             var apis = [  
-                { url: 'https://api.coincap.io/v2/assets/bitcoin?t=' + timestamp, type: 'coincap' }, // 首选
-                { url: 'https://mempool.space/api/v1/prices?t=' + timestamp, type: 'mempool' }     // 备选
+                { url: 'https://api.coincap.io/v2/assets/bitcoin?t=' + timestamp, type: 'coincap' },
+                { url: 'https://mempool.space/api/v1/prices?t=' + timestamp, type: 'mempool' }
             ];  
   
             for (var i = 0; i < apis.length; i++) {  
                 try {  
                     var controller = new AbortController();  
-                    // 3秒超时机制，防止卡顿
                     var id = setTimeout(function() { controller.abort(); }, 3000);  
                     var res = await fetch(apis[i].url, { signal: controller.signal });  
                     clearTimeout(id);  
@@ -234,39 +231,32 @@
                         if (apis[i].type === 'coincap') price = parseFloat(data.data.priceUsd);  
                         else if (apis[i].type === 'mempool') price = parseFloat(data.USD);  
                         
-                        if (price > 0) break; // 获取成功则跳出循环
+                        if (price > 0) break; 
                     }  
                 } catch (e) {}  
             }  
   
             if (price > 0) {  
                 currentPrice = price;
-                
-                // 1. 更新主页数据
                 var diff = Math.floor(price - BEAR_LOW);  
                 var drop = ((BULL_PEAK - price) / BULL_PEAK * 100).toFixed(2);  
                 gapEl.className = "val bright-red";   
                 if (diff > 0) gapEl.innerText = diff.toLocaleString() + " U (已跌" + drop + "%)";  
                 else gapEl.innerText = "已跌破底价!";  
   
-                // 2. 更新时间戳
                 var now = new Date();  
                 timeEl.innerText = "更新于 " + now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0') + ":" + now.getSeconds().toString().padStart(2,'0');  
                 dotEl.classList.add('pulse-active');  
                 setTimeout(function() { dotEl.classList.remove('pulse-active'); }, 500);
 
-                // 3. 同步更新矿机页价格
                 document.getElementById('miner-live-price').innerText = "$" + Math.floor(price).toLocaleString();
                 renderMiners();
-            } else {
-                // 如果还是获取不到
-                if(gapEl.innerText === "加载中...") {
-                     gapEl.innerText = "连接超时，重试中...";
-                }
+            } else if(gapEl.innerText === "加载中...") {
+                gapEl.innerText = "连接中...";
             }
         }  
 
-        // 矿机：难度获取
+        // === 核心逻辑 2：难度获取 ===
         async function fetchDifficulty() {
             try {
                 let r1 = await fetch('https://mempool.space/api/blocks/tip/hash');
@@ -278,14 +268,15 @@
             } catch(e){}
         }
 
-        // 矿机：渲染
+        // === 核心逻辑 3：【已修复】矿机渲染公式 ===
         function renderMiners() {
             if(currentPrice === 0 || currentDiff === 0) return;
             const list = document.getElementById('miner-list');
             list.innerHTML = "";
             
-            // 计算公式
-            const btcPerTH = (3.125 * 144 * 1e12) / (currentDiff * 4294967296);
+            // ★★★ 关键修复：乘上 86400 (每日秒数) ★★★
+            // 公式：(奖励 * 秒数 * 1T) / (难度 * 2^32)
+            const btcPerTH = (3.125 * 86400 * 1e12) / (currentDiff * 4294967296);
 
             let data = MINERS.map(m => {
                 let rev = m.hash * btcPerTH;
@@ -373,9 +364,9 @@
   
         manualRefresh();  
   
-        // 10秒刷新一次价格
+        // 10秒更新价格
         setInterval(function() { if (!document.hidden) updatePrice(); }, 10000);  
-        // 10分钟刷新一次区块数据
+        // 10分钟更新区块和难度
         setInterval(function() { if (!document.hidden) { updateBlocks(); updateDate(); } }, 600000);  
     </script>  
 </body>  
