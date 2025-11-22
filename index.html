@@ -11,7 +11,7 @@
     <meta name="theme-color" content="#0d1117">  
   
     <style>  
-        /* ==================== 1. 原有样式 (绝对保留，未做修改) ==================== */
+        /* ==================== 1. 原有样式 (绝对保留) ==================== */
         body { background-color: #0d1117; color: #c9d1d9; font-family: -apple-system, "SF Pro Text", sans-serif; margin: 0; padding: 20px 15px; display: flex; flex-direction: column; align-items: center; }  
         h1 { font-size: 1.2rem; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; width: 100%; max-width: 600px; justify-content: space-between; }  
         .container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 15px; }  
@@ -68,6 +68,7 @@
   
     <h1 id="main-title">
         <span>📊 市场周期监控</span>
+        <!-- 返回按钮 -->
         <button id="back-btn" class="hidden" style="background:none; border:none; color:#58a6ff; font-size:0.9rem; cursor:pointer;" onclick="showHome()">
             ↩ 返回首页
         </button>
@@ -151,11 +152,11 @@
             <!-- JS 自动填充 -->
         </div>
         
-        <!-- 文案已更新 -->
-        <div class="tip" style="text-align:left; padding:0 10px; line-height:1.8">
-            <span style="color:#d29922; font-weight:bold">第一支撑</span>：基础主流机型，抄底第一支撑位。<br>
-            <span style="color:#e6edf3; font-weight:bold">黄金坑</span>：主力机型，抄底黄金坑位。<br>
-            <span style="color:#3fb950; font-weight:bold">钻石坑</span>：旗舰高效机型，抄底钻石坑位。
+        <!-- 底部文案 -->
+        <div class="tip">
+            <span style="color:#d29922">第一支撑</span>：基础主流机型，抄底第一支撑位。<br>
+            <span style="color:#e6edf3">黄金坑</span>：主力机型，抄底黄金坑位。<br>
+            <span style="color:#3fb950">钻石坑</span>：旗舰高效机型，抄底钻石坑位。
         </div>
     </div>
   
@@ -165,24 +166,26 @@
         const BEAR_LOW = 38000;  
         const ELEC_COST = 0.06;
         
-        // === 矿机数据库 (更新至 F2Pool 最新数据) ===
+        // === 矿机数据库 (已修正数据) ===
         const MINERS = [
             // --- 第一支撑 (High Cost) ---
-            { name: "神马 M60", hash: 162, watts: 3240, tag: "第一支撑", color: "#d29922" },
-            { name: "神马 M66 (浸没)", hash: 252, watts: 5014, tag: "第一支撑", color: "#d29922" },
+            // 修正：172T/3423W, 去除（浸没）
+            { name: "神马 M60", hash: 172, watts: 3423, tag: "第一支撑", color: "#d29922" },
+            // 修正：238T/4736W
+            { name: "神马 M66", hash: 238, watts: 4736, tag: "第一支撑", color: "#d29922" },
+            { name: "Antminer S19 Pro", hash: 110, watts: 3250, tag: "第一支撑", color: "#d29922" }, // 保留作为基准
 
             // --- 黄金坑 (Mid Efficiency) ---
-            { name: "神马 M60S", hash: 186, watts: 3441, tag: "黄金坑", color: "#e6edf3" },
-            { name: "神马 M63S (水冷)", hash: 390, watts: 7215, tag: "黄金坑", color: "#e6edf3" },
+            // 删除 M60S, M63S
             { name: "海豹 A2 (标准)", hash: 226, watts: 3729, tag: "黄金坑", color: "#e6edf3" }, 
-            { name: "蚂蚁 S21 Hyd.", hash: 335, watts: 5360, tag: "黄金坑", color: "#e6edf3" }, // 已从钻石移动到黄金
+            { name: "Antminer S19 XP", hash: 141, watts: 3031, tag: "黄金坑", color: "#e6edf3" },
+            { name: "Antminer S21 Hyd.", hash: 335, watts: 5360, tag: "黄金坑", color: "#e6edf3" }, 
 
             // --- 钻石坑 (Top Efficiency) ---
-            // 新增：海豹 A3 Pro (数据基于 A2 Pro 优化或F2Pool同级)
-            { name: "海豹 A3 Pro (水冷)", hash: 500, watts: 7200, tag: "钻石坑", color: "#3fb950" }, 
-            // 更新：S23 Hyd 数据同步 F2Pool (580T/5510W)
-            { name: "蚂蚁 S23 Hyd.", hash: 580, watts: 5510, tag: "钻石坑", color: "#3fb950" }, 
-            { name: "蚂蚁 U3S23H", hash: 1160, watts: 11020, tag: "钻石坑", color: "#3fb950" }
+            // 修正：660T/8250W
+            { name: "海豹 A3 Pro (水冷)", hash: 660, watts: 8250, tag: "钻石坑", color: "#3fb950" }, 
+            { name: "Antminer S23 Hyd.", hash: 580, watts: 5510, tag: "钻石坑", color: "#3fb950" }, 
+            { name: "Antminer U3S23H", hash: 1160, watts: 11020, tag: "钻石坑", color: "#3fb950" }
         ];
 
         // 全局状态
